@@ -1,9 +1,13 @@
-import serial, re, time, statistics
+import serial, time, statistics, csv
 
+SET_VAL = 0
+VERN_VAL = 0
 REF_LIST = []
 SetPoint = [-30, -20, 0, 30, 40]
-
-ser_plex = serial.Serial('COM9', 9600, timeout=5)
+p = 0
+BathError = 0.3
+ser_bath = serial.Serial('COM11', 2400, timeout=5)
+ser_plex = serial.Serial('COM10', 9600, timeout=5)
 
 REF_VAL = 0
 DUT10 = 0
@@ -17,19 +21,57 @@ DUT17 = 0
 DUT18 = 0
 DUT19 = 0
 
+
+def BathSetPoint(ser_bath):
+    try:
+        global SET_VAL
+        ser_bath.write(b's\r\n')
+        time.sleep(2)
+        line = ser_bath.readline()  # Read instrument serial output
+        line_str = str(line)  # Convert data to string
+
+        form_str = line_str[7:-6]
+        SET_VAL = float(form_str)
+
+        return SET_VAL
+    except ValueError:
+        print('NaN')
+
+def VernVal(ser_bath):
+    try:
+        global VERN_VAL
+        ser_bath.write(b'v\r\n')
+        time.sleep(2)
+        line = ser_bath.readline()  # Read instrument serial output
+        line_str = str(line)  # Convert data to striNG
+
+        form_str = line_str[4:-5]
+        VERN_VAL = float(form_str)
+
+        return VERN_VAL
+    except ValueError:
+        print('Nan')
+
 def read_REF(ser_plex):
-    global REF_VAL
-    ser_plex.write(b'READ2?\r\n')
-    time.sleep(5)
-    linePlex = ser_plex.readline()
-    # Read instrument serial output
-    # Convert data to string
-    plexline_str = str(linePlex)
+    try:
+        global REF_VAL
+        ser_plex.write(b'READ2?\r\n')
+        time.sleep(5)
+        linePlex = ser_plex.readline()
+        # Read instrument serial output
+        # Convert data to string
+        plexline_str = str(linePlex)
 
-    form_str = plexline_str[2:-6]
-    REF_VAL = float(form_str)
+        form_str = plexline_str[2:-6]
+        REF_VAL = float(form_str)
 
-    return REF_VAL
+        return REF_VAL
+
+    except ValueError:
+        return print('ValueError')
+
+
+
 
 
 
@@ -164,10 +206,23 @@ def read_DUT19(ser_plex):
 
     return DUT19
 
-if ser_plex.isOpen():
-    print(ser_plex.name + ' is open...')
-else:
-    print("Bridge/MUX Instrument Not Connected")
+
+
+#Set initial bath conditions
+#Turn of continuous output and duplex to half duplex
+ser_bath.write(b'du=h\r\n')
+time.sleep(2)
+ser_bath.write(b'sa=0\r\n')
+time.sleep(2)
+ser_bath.reset_input_buffer()
+time.sleep(2)
+
+#Set beth temp to -29.7 (-30 actual)
+ser_bath.write(b's=%a\r\n'%(SetPoint[p]+BathError))
+time.sleep(2)
+ser_bath.reset_input_buffer()
+
+
 
 while True:
     try:
@@ -190,7 +245,7 @@ while True:
                 print("Bath is stable!")
                 print("Mean temperature: ", mean)
 
-                error = mean - SetPoint[4]
+                error = mean - SetPoint[p]
 
                 print("ERROR: ", error)
 
@@ -198,12 +253,21 @@ while True:
 
                     print("make vernier adjustment")
 
+
+
+                    VernVal(ser_bath)
+                    print('current vernier setting: ', VERN_VAL)
+
+
+
                 elif error <= -0.001:
 
                     print("Make vernier adjustment")
 
                 else:
                     print("Correct temp achieved. Take DUT readings")
+
+                    BathSetPoint(ser_bath)
 
                     read_DUT10(ser_plex)
                     read_DUT11(ser_plex)
@@ -215,6 +279,7 @@ while True:
                     read_DUT17(ser_plex)
                     read_DUT18(ser_plex)
                     read_DUT19(ser_plex)
+                    print('Set Point: ', SET_VAL)
                     print('Channel 10: ', DUT10)
                     print('Channel 11: ', DUT11)
                     print('Channel 12: ', DUT12)
@@ -226,7 +291,35 @@ while True:
                     print('Channel 18: ', DUT18)
                     print('Channel 19: ', DUT19)
 
+                    with open('ERT_testdata.csv', 'w', newline='') as csvfile:
+                        fieldnames = ['DUT Resistance', 'Reference Temperature', 'Current set point',
+                                      '']
+                        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+
+                        writer.writeheader()
+                        writer.writerow({'DUT Resistance': DUT10, 'Reference Temperature': REF_VAL,
+                                         'Current set point': SET_VAL})
+                        writer.writerow({'DUT Resistance': DUT11, 'Reference Temperature': REF_VAL,
+                                         'Current set point': SET_VAL})
+                        writer.writerow({'DUT Resistance': DUT12, 'Reference Temperature': REF_VAL,
+                                         'Current set point': SET_VAL})
+                        writer.writerow({'DUT Resistance': DUT13, 'Reference Temperature': REF_VAL,
+                                         'Current set point': SET_VAL})
+                        writer.writerow({'DUT Resistance': DUT14, 'Reference Temperature': REF_VAL,
+                                         'Current set point': SET_VAL})
+                        writer.writerow({'DUT Resistance': DUT15, 'Reference Temperature': REF_VAL,
+                                         'Current set point': SET_VAL})
+                        writer.writerow({'DUT Resistance': DUT16, 'Reference Temperature': REF_VAL,
+                                         'Current set point': SET_VAL})
+                        writer.writerow({'DUT Resistance': DUT17, 'Reference Temperature': REF_VAL,
+                                         'Current set point': SET_VAL})
+                        writer.writerow({'DUT Resistance': DUT18, 'Reference Temperature': REF_VAL,
+                                         'Current set point': SET_VAL})
+                        writer.writerow({'DUT Resistance': DUT19, 'Reference Temperature': REF_VAL,
+                                         'Current set point': SET_VAL})
                     time.sleep(1)
+
+                    p += 1
 
             else:
                 print("Temperature not stable!")
