@@ -5,7 +5,7 @@ VERN_VAL = 0
 REF_LIST = []
 SetPoint = [-30, -20, 0, 30, 40]
 p = 0
-BathError = 0.3
+BathError = 0
 ser_bath = serial.Serial('COM11', 2400, timeout=5)
 ser_plex = serial.Serial('COM10', 9600, timeout=5)
 
@@ -51,6 +51,18 @@ def VernVal(ser_bath):
         return VERN_VAL
     except ValueError:
         print('Nan')
+
+def SetVern(ser_bath, error, VernVal):
+    try:
+        corr = VernVal + error
+        ser_bath.write(b'v=%a\r\n'%corr)
+        time.sleep(2)
+        print('correction: ',corr)
+
+    except:
+        print('Vernier set error')
+
+
 
 def read_REF(ser_plex):
     try:
@@ -224,16 +236,18 @@ ser_bath.reset_input_buffer()
 
 
 
+
 while True:
     try:
+
         read_REF(ser_plex)
 
         REF_LIST.insert(0, REF_VAL)
 
-        localtime = time.asctime(time.localtime(time.time()))
+        #localtime = time.asctime(time.localtime(time.time()))
 
         print("Reference Temp: ", REF_VAL)
-        print("time: ", localtime)
+        #print("time: ", localtime)
         print(REF_LIST)
         print(len(REF_LIST))
 
@@ -245,24 +259,44 @@ while True:
                 print("Bath is stable!")
                 print("Mean temperature: ", mean)
 
-                error = mean - SetPoint[p]
+                error = SetPoint[p] - mean
 
                 print("ERROR: ", error)
 
                 if error >= 0.001:
 
-                    print("make vernier adjustment")
+                    if error >= 0.01:
 
+                        BathError = BathError + error
+                        ser_bath.write(b's=%a\r\n'%(SetPoint[p]+BathError))
+                        time.sleep(60)
+                        ser_bath.reset_input_buffer()
 
+                    else:
 
-                    VernVal(ser_bath)
-                    print('current vernier setting: ', VERN_VAL)
+                        VernVal(ser_bath)
+                        print('current vernier setting: ', VERN_VAL)
 
+                        SetVern(ser_bath, error, VERN_VAL)
+                        time.sleep(60)
 
 
                 elif error <= -0.001:
 
-                    print("Make vernier adjustment")
+                    if error <= -0.01:
+
+                        BathError = BathError + error
+                        ser_bath.write(b's=%a\r\n'%(SetPoint[p]+BathError))
+                        time.sleep(60)
+                        ser_bath.reset_input_buffer()
+
+                    else:
+
+                        VernVal(ser_bath)
+                        print('current vernier setting: ', VERN_VAL)
+
+                        SetVern(ser_bath, error, VERN_VAL)
+                        time.sleep(60)
 
                 else:
                     print("Correct temp achieved. Take DUT readings")
@@ -291,11 +325,10 @@ while True:
                     print('Channel 18: ', DUT18)
                     print('Channel 19: ', DUT19)
 
-                    with open('ERT_testdata.csv', 'w', newline='') as csvfile:
+                    with open('ERT_testdata.csv', 'a', newline='') as csvfile:
                         fieldnames = ['DUT Resistance', 'Reference Temperature', 'Current set point',
                                       '']
                         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-
                         writer.writeheader()
                         writer.writerow({'DUT Resistance': DUT10, 'Reference Temperature': REF_VAL,
                                          'Current set point': SET_VAL})
@@ -320,6 +353,13 @@ while True:
                     time.sleep(1)
 
                     p += 1
+
+                    ser_bath.write(b's=%a\r\n' % (SetPoint[p] + BathError))
+                    time.sleep(60)
+                    ser_bath.reset_input_buffer()
+                    ser_bath.write(b'v=0\r\n')
+                    time.sleep(5)
+                    ser_bath.reset_input_buffer()
 
             else:
                 print("Temperature not stable!")
