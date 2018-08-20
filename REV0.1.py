@@ -1,13 +1,13 @@
-import serial, time, statistics, csv
+import serial, time, statistics, csv        
 
 
+REF_VAL = 0
 SET_VAL = 0
 VERN_VAL = 0
 REF_LIST = []
-SetPoint = [-30, -20, 0, 30, 40]
-p = 0
-BathError = 0
-REF_VAL = 0
+SetPoint = [-30, -20, 0, 30, 40]            # temperature set points. If the amount of set points changes edit line 397
+p = 0                                       # temperature set point list index variable
+BathError = 0     
 DUT10 = 0
 DUT11 = 0
 DUT12 = 0
@@ -29,15 +29,15 @@ print('Please enter the COM port that the Fluke temperature bath is connected to
 bath_port = (input('>'))
 bath_port = bath_port.upper()
 
-ser_bath = serial.Serial(bath_port, 2400, timeout=5)
+ser_bath = serial.Serial(bath_port, 2400, timeout=5)          #Serial port initialsation 
 
-bath_open = ser_bath.is_open
+bath_open = ser_bath.is_open   # Test to see if connection successful 
 if bath_open == True:
     print('Connection to temperature bath successful. ')
 else:
     print('Connection unsuccessful. Please reset the port and restart the program. ')
     time.sleep(10)
-    exit()
+    exit()                   # If connection not successful end program. This could be improved by asking the user to re-enter port details
 
 
 print('**************************************************************************\n\n')
@@ -61,7 +61,7 @@ else:
 print('**************************************************************************\n\n')
 
 
-def BathSetPoint(ser_bath):
+def BathSetPoint(ser_bath):         # Get the current set point of the bath
     try:
         global SET_VAL
         ser_bath.write(b's\r\n')
@@ -76,7 +76,7 @@ def BathSetPoint(ser_bath):
     except ValueError:
         print('NaN')
 
-def VernVal(ser_bath):
+def VernVal(ser_bath):          # Get current vernier adjustment value. 
     try:
         global VERN_VAL
         ser_bath.write(b'v\r\n')
@@ -91,7 +91,7 @@ def VernVal(ser_bath):
     except ValueError:
         print('Nan')
 
-def SetVern(ser_bath, error, VernVal):
+def SetVern(ser_bath, error, VernVal):          # Set vernier adjustment value 
     try:
         corr = VernVal + error
         ser_bath.write(b'v=%a\r\n'%corr)
@@ -103,7 +103,7 @@ def SetVern(ser_bath, error, VernVal):
 
 
 
-def read_REF(ser_plex):
+def read_REF(ser_plex):                 # Read the current temperature of the reference thermometer
     try:
         global REF_VAL
         ser_plex.write(b'READ2?\r\n')
@@ -126,7 +126,7 @@ def read_REF(ser_plex):
 
 
 
-def read_DUT10(ser_plex):
+def read_DUT10(ser_plex):                   # Read the resistance value of channel 10 DUT
     global DUT10
     ser_plex.write(b'MEAS:FRES10:REF204? 125,1\r\n')
     time.sleep(2)
@@ -258,7 +258,7 @@ def read_DUT19(ser_plex):
     return DUT19
 
 
-start = time.time()
+start = time.time()          # Start program timer. measures program run time and print result when test has completed 
 
 #Set initial bath conditions
 print('Setting initial bath conditions...')
@@ -281,36 +281,36 @@ print('Set point: ', SetPoint[p])
 while True:
     try:
 
-        read_REF(ser_plex)
+        read_REF(ser_plex)      # Read the current value of the reference SPRT
 
-        REF_LIST.insert(0, REF_VAL)
+        REF_LIST.insert(0, REF_VAL)     # Add that value to index [0] of the temperature list 
 
 
         if len(REF_LIST) >= 10:
-            vari = statistics.stdev(REF_LIST[:9])
-            mean = statistics.mean(REF_LIST[:9])
+            vari = statistics.stdev(REF_LIST[:9])       # Calculate the stdev of the past 10 temperature readings
+            mean = statistics.mean(REF_LIST[:9])        # Calculate the mean temperature of the past 10 temperature readings
             print('Waiting for bath stability')
             print("stdev: ", vari)
-            if vari < 0.00018:
+            if vari < 0.00018:                      # Once the stdev is below 0.00018 the temperature of the bath is stable
                 print("Bath is stable!")
                 print("Mean temperature: ", mean)
 
-                error = SetPoint[p] - mean
+                error = SetPoint[p] - mean          # Calculate the error between the set point value and actual value
 
                 print("ERROR: ", error)
 
                 if error >= 0.001:
 
-                    if error >= 0.01:
+                    if error >= 0.01:                   # If error larger than 0.01 adjust the set point value
                         print('Making Corrections...')
                         BathError = BathError + error
                         ser_bath.write(b's=%a\r\n'%(SetPoint[p]+BathError))
-                        time.sleep(60)
+                        time.sleep(60)                  # Wait 60 sec before taking another temp reading to allow the temperature to change
                         ser_bath.reset_input_buffer()
                         print('Corrections made.')
 
                     else:
-                        print('Making vernier corrections...')
+                        print('Making vernier corrections...')     # If the error is only small use the vernier adjustment 
                         VernVal(ser_bath)
                         print('current vernier setting: ', VERN_VAL)
 
@@ -319,7 +319,7 @@ while True:
                         print('Corrections made.')
 
 
-                elif error <= -0.001:
+                elif error <= -0.001:               # Same as above for negative error
 
                     if error <= -0.01:
                         print('Making corrections...')
@@ -335,15 +335,15 @@ while True:
                         print('current vernier setting: ', VERN_VAL)
 
                         SetVern(ser_bath, error, VERN_VAL)
-                        time.sleep(60)
+                        time.sleep(60)                          # Do not reduce the wait period
                         print('Corrections made.')
 
                 else:
-                    print("Correct temp achieved. Taking DUT readings")
+                    print("Correct temp achieved. Taking DUT readings") # If the error is less than =/-0.001 the correct temp has been achieved
 
-                    BathSetPoint(ser_bath)
+                    BathSetPoint(ser_bath)      # Read bath
 
-                    read_DUT10(ser_plex)
+                    read_DUT10(ser_plex)        # Read DUT values
                     read_DUT11(ser_plex)
                     read_DUT12(ser_plex)
                     read_DUT13(ser_plex)
@@ -353,7 +353,7 @@ while True:
                     read_DUT17(ser_plex)
                     read_DUT18(ser_plex)
                     read_DUT19(ser_plex)
-                    print('Set Point: ', SET_VAL)
+                    print('Set Point: ', SET_VAL)       # Print values to terminal for operator reference 
                     print('Channel 10: ', DUT10)
                     print('Channel 11: ', DUT11)
                     print('Channel 12: ', DUT12)
@@ -366,53 +366,53 @@ while True:
                     print('Channel 19: ', DUT19)
 
                     with open('ERT_testdata.csv', 'a', newline='') as csvfile:
-                        fieldnames = ['DUT Resistance', 'Reference Temperature', 'Current set point',
-                                      '']
+                        fieldnames = ['DUT Resistance', 'Reference Temperature', 'Current set point',   # Append .CSV file with recoreded data
+                                      '']                # logged varibles: DUT resistance, Reference temp, set point
                         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
                         writer.writeheader()
                         writer.writerow({'DUT Resistance': DUT10, 'Reference Temperature': REF_VAL,
-                                         'Current set point': SET_VAL})
+                                         'Current set point': SetPoint[p]})
                         writer.writerow({'DUT Resistance': DUT11, 'Reference Temperature': REF_VAL,
-                                         'Current set point': SET_VAL})
+                                         'Current set point': SetPoint[p]})
                         writer.writerow({'DUT Resistance': DUT12, 'Reference Temperature': REF_VAL,
-                                         'Current set point': SET_VAL})
+                                         'Current set point': SetPoint[p]})
                         writer.writerow({'DUT Resistance': DUT13, 'Reference Temperature': REF_VAL,
-                                         'Current set point': SET_VAL})
+                                         'Current set point': SetPoint[p]})
                         writer.writerow({'DUT Resistance': DUT14, 'Reference Temperature': REF_VAL,
-                                         'Current set point': SET_VAL})
+                                         'Current set point': SetPoint[p]})
                         writer.writerow({'DUT Resistance': DUT15, 'Reference Temperature': REF_VAL,
-                                         'Current set point': SET_VAL})
+                                         'Current set point': SetPoint[p]})
                         writer.writerow({'DUT Resistance': DUT16, 'Reference Temperature': REF_VAL,
-                                         'Current set point': SET_VAL})
+                                         'Current set point': SetPoint[p]})
                         writer.writerow({'DUT Resistance': DUT17, 'Reference Temperature': REF_VAL,
-                                         'Current set point': SET_VAL})
+                                         'Current set point': SetPoint[p]})
                         writer.writerow({'DUT Resistance': DUT18, 'Reference Temperature': REF_VAL,
-                                         'Current set point': SET_VAL})
+                                         'Current set point': SetPoint[p]})
                         writer.writerow({'DUT Resistance': DUT19, 'Reference Temperature': REF_VAL,
-                                         'Current set point': SET_VAL})
+                                         'Current set point': SetPoint[p]})
                     time.sleep(1)
 
-                    p += 1
+                    p += 1          # Increment the set point to the next value
 
-                    if p >= 5:
-                        print('Test complete. Generated .CSV file can be found at:  ')
+                    if p >= 5:      # Once all set points have been tested the program will have completed.
+                        print('Test complete. Generated .CSV file can be found at:  ') # .CSV file path
                         end = time.time()
-                        print('Test runtime: ', (end - start))
+                        print('Test runtime: ', (end - start))  # print program run time
                         time.sleep(30)
-                        exit()
+                        exit()      # End program
                     else:
                         print('Set point: ', SetPoint[p])
 
 
-                    ser_bath.write(b's=%a\r\n' % (SetPoint[p] + BathError))
+                    ser_bath.write(b's=%a\r\n' % (SetPoint[p] + BathError))    # Set the bath to the next set point
                     time.sleep(60)
                     ser_bath.reset_input_buffer()
-                    ser_bath.write(b'v=0\r\n')
+                    ser_bath.write(b'v=0\r\n')      # Reset the vernier adjustment to 0.0 to prevent limit errors
                     time.sleep(5)
                     ser_bath.reset_input_buffer()
 
             else:
-                print("Temperature not stable!")
+                print("Temperature not stable!")        # If bath temp not stable 
         else:
             continue
 
