@@ -25,6 +25,7 @@ Possible improvements:
 - Automatically store results on ServiceNow database 
 - Auto generate calibration certificates 
 
+### Manual instrument setup 
 
 ### microK & microsKanner notes:
 
