@@ -30,3 +30,7 @@ Possible improvements:
 ### microK & microsKanner notes:
 
 The SPRT setting are adjusted via the front panel of the instrument however the DUT settings are controlled via the script. They are currently hardcoded as ``` MEAS:FRES10:REF204? 125,1 ```. This equates to, measure resistance of channel 10 uding channel 3 of the microK (REF204) with a range of 125 ohms and a current of 1mA. These values could be incorporated into the GUI. 
+
+
+https://medium.com/dreamcatcher-its-blog/making-an-stand-alone-executable-from-a-python-script-using-pyinstaller-d1df9170e263 
+
