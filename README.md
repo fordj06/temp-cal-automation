@@ -27,6 +27,18 @@ Possible improvements:
 
 ### Manual instrument setup 
 
+The Instrument setup is much the same as for the manual test. The steps are: 
+
+   1. Ensure the instruments are connected. 
+   2. Turn on the instruments 
+   3. Set the bath to -30 to begin cooling (not essential but speeds up the testing process).
+   4. Connect the ERTs to the microsKanner terminals 
+   5. Put the ERTs into the bath 
+   6. Once all the ERTs are connected turn the channels on to test the connections
+   7. Place the SPRT working reference standard into the bath 
+   8. Start the application on the workstation 
+   9. Follow instructions oth the application terminal 
+
 ### microK & microsKanner notes:
 
 The SPRT setting are adjusted via the front panel of the instrument however the DUT settings are controlled via the script. They are currently hardcoded as ``` MEAS:FRES10:REF204? 125,1 ```. This equates to, measure resistance of channel 10 uding channel 3 of the microK (REF204) with a range of 125 ohms and a current of 1mA. These values could be incorporated into the GUI. 
